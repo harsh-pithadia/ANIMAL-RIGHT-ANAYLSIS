@@ -1,0 +1,368 @@
+---
+title: "Midterm "
+author: "hp621@scarletmail.rutgers.edu"
+date: "04/01/2023"
+output: html_document
+---
+```{r}
+library(factoextra)
+library(corrplot)
+library(cluster)
+library(psych)
+library(dplyr)
+library(devtools)
+library(MASS)
+library(Hotelling)
+library(ggplot2)
+library(tidyr)
+library(readr)
+library(FactoMineR)
+library(GGally)
+library("factoextra")
+
+```
+## Importing Data and initial analysis
+## Importing csv file
+
+```{r}
+Animal_Rights <- read_csv("C:/Users/HARSH/Desktop/RU/SEM 2/MVA/Assignments/Animal_Rights.csv")
+View(Animal_Rights)
+```
+
+
+•	Describe the data and its values briefly. 
+```{r}
+dim(Animal_Rights)
+#It has 67 rows and 11 columns
+
+colnames(Animal_Rights)
+#The name of following columns of the dataset
+
+
+str(Animal_Rights)
+
+#It shows the columns country is in character while others are in numeric data
+
+
+summary(Animal_Rights)
+
+attach(Animal_Rights)
+
+```
+
+#On average, 71.64% of countries recognize animal sentience, while 89.55% acknowledge animal suffering.
+#Around 97.01% of countries have legislation against animal cruelty, indicating a widespread legal framework for animal protection.
+#The majority of countries (97.01%) support the Universal Declaration of Animal Welfare, with 89.55% implementing a fur-farming ban.
+#Median meat consumption per capita is 65.77 kilograms, highlighting significant consumption levels.
+#Despite efforts with protected areas (median: 19.69% of land), pesticide use remains high (mean: 3.199 kilograms), suggesting potential environmental concerns.
+
+
+```{r}
+#Visualize the countries across all the dimensions in one chart so you can easily see similar countries. 
+
+ggscatmat(Animal_Rights, columns=2:11, color="Country")
+
+stars(Animal_Rights, columns=2:11,labels=Animal_Rights$Country)
+```
+
+```{r}
+#Compute the distance between the countries across the different dimensions.
+
+scale <- scale(Animal_Rights[-1])
+#mean of each column
+animalmean <- colMeans(Animal_Rights[-1])
+#correlation of each column
+animalcor <- cor(Animal_Rights[-1])
+#covariance
+animalcov <- cov(Animal_Rights[-1])
+
+
+
+# Computing the Mahalanobis distance for each country
+mahalanobis_distance <- function(x) {
+  mahalanobis(x, animalmean, animalcov)
+}
+
+# Applying the Mahalanobis distance function to each row of the dataset
+distance_matrix <- apply(Animal_Rights[-1], 1, mahalanobis_distance)
+
+# Converting the distance matrix to a data frame for better readability
+distance_df <- data.frame(Country , Distance = distance_matrix)
+
+# Displaying the Mahalanobis distance for each country
+print(distance_df)
+
+```
+#These are the distance of each country across the dimensions
+
+
+```{r}
+#Carry out cluster analysis to study the relationship between countries. Explain the number of clusters you chose as optimal and why. Show visualizations to support your answers where possible. 
+
+
+
+scale <- scale(Animal_Rights[-1])
+
+rownames(scale) <- Animal_Rights$Country
+
+# we take 2 clusters, k-means = 2
+kmeans2.animals <- kmeans(scale,2,nstart = 10)
+
+# Computing the percentage of variation accounted for two  clusters
+perc.var.2 <- round(100*(1 - kmeans2.animals$betweenss/kmeans2.animals$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+perc.var.2
+
+# we take 3 clusters, k-means = 3
+kmeans3.animals <- kmeans(scale,3,nstart = 10)
+# Computing the percentage of variation accounted for three  clusters
+perc.var.3 <- round(100*(1 - kmeans3.animals$betweenss/kmeans3.animals$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+perc.var.3
+
+# For 4 clusters, k-means = 4
+kmeans4.animals <- kmeans(scale,4,nstart = 10)
+# Computing the percentage of variation accounted for four clusters
+perc.var.4 <- round(100*(1 - kmeans4.animals$betweenss/kmeans4.animals$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+perc.var.4
+
+#For 5 clusters, k-means = 5
+kmeans5.animals <- kmeans(scale,5,nstart = 10)
+# Computing the percentage of variation accounted for four clusters
+perc.var.5 <- round(100*(1 - kmeans5.animals$betweenss/kmeans5.animals$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+perc.var.5
+
+```
+#The 2 cluster shows the highest variance so we go with 2 clusters
+```{r}
+# We divide the dataset into three clusters.
+# Filtering properties which are in 1 cluster of k mean 3
+clus1 <- matrix(names(kmeans3.animals$cluster[kmeans3.animals$cluster == 1]),
+                ncol=1, nrow=length(kmeans3.animals$cluster[kmeans3.animals$cluster == 1]))
+colnames(clus1) <- "Cluster 1"
+clus1
+
+# Filtering properties which are in 2 cluster of k mean 3
+clus2 <- matrix(names(kmeans2.animals$cluster[kmeans2.animals$cluster == 2]),
+                ncol=1, nrow=length(kmeans2.animals$cluster[kmeans2.animals$cluster == 2]))
+colnames(clus2) <- "Cluster 2"
+clus2
+
+# Filtering properties which are in 3 cluster of k mean 3
+clus3 <- matrix(names(kmeans3.animals$cluster[kmeans3.animals$cluster == 3]),
+                ncol=1, nrow=length(kmeans3.animals$cluster[kmeans2.animals$cluster == 3]))
+colnames(clus3) <- "Cluster 3"
+clus3
+```
+```{r}
+# We can use the hierarchical clustering method, which allows us to create a dendrogram 
+# to visualize the relationships between the countries based on their animal rights
+# Hierarchical Clustering
+
+# Calculating the distance matrix using Euclidean distance
+dist.animals <- dist(Animal_Rights, method = "euclidean") # Distance matrix
+
+# Performing hierarchical clustering using complete linkage
+fit <- hclust(dist.animals, method="complete")
+
+#Plotting the dendogram
+
+plot(fit, main="Dendrogram of European countries based on diet")
+
+#Cutting the tree into 3 clusters
+groups <- cutree(fit, k=3)
+
+#Plotting dendogram with red borders around the 2 clusters
+rect.hclust(fit, k=3, border="red")
+
+gap_stat <- clusGap(scale, FUN = kmeans, nstart = 1, K.max = 6, B = 50)
+
+fviz_gap_stat(gap_stat)
+
+km.res3 <- kmeans(scale, 3, nstart = 10)  
+
+# Visualize clusters
+fviz_cluster(km.res3, data = scale,  
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+```
+
+# From the dendrogram, we can see that the countries can be grouped into three main clusters
+
+```{r}
+#•	Use principal components analysis to investigate the relationships between the countries based on these variables. Show visualizations to support your answers where possible
+
+# Getting the Correlations 
+
+animal_plot <- animalcor
+
+corrplot(animal_plot,tl.cex = 0.7)
+
+```
+
+#Total score is least affected by (Kgs of pesticide/ Hectare of cropland) and affects most by Environmental Performance Index SCore and Support of Universal Declaration of ANimal Welfare
+```{r}
+animals.PCA <- prcomp(Animal_Rights[-1],scale=TRUE)
+animals.PCA
+
+str(animals.PCA)
+#sdev,rotation,center,scale, x
+
+animals.eigen <- animals.PCA$sdev^2
+animals.eigen
+
+sumlambdas <- sum(animals.eigen)
+sumlambdas
+#10
+
+propvar <- animals.eigen/sumlambdas
+propvar
+
+cumvar <- cumsum(propvar)
+cumvar
+
+matlambdas <- rbind(animals.eigen,propvar,cumvar)
+rownames(matlambdas) <- c("Eigenvalues","Prop. variance","Cum. prop. variance")
+round(matlambdas,4)
+summary(animals.PCA)
+animals.PCA$rotation
+print(animals.PCA)
+
+
+
+
+
+plot(animals.eigen, xlab = "Component number", ylab = "Component variance", type = "l", main = "Scree diagram")
+
+#cutoff for PCA dimension's should be at 2 the elbow break is massive after 2 dimension's indicating that the variance dropp off is massive
+
+res.pca <- PCA(Animal_Rights[-1], graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "black")
+
+plot(log(animals.eigen), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+
+# Correlation
+pairs.panels(Animal_Rights[,-1],
+             gap = 0,
+             bg = c("red", "blue")[Animal_Rights$Country],
+             pch=21)
+
+pairs.panels(animals.PCA$x,
+             gap=0,
+             bg = c("red", "blue")[Animal_Rights$Country],
+             pch=21)
+
+# Variables - PCA (cos2)
+fviz_eig(animals.PCA, addlabels = TRUE)
+fviz_pca_var(animals.PCA,col.var = "cos2",
+             gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"),
+             repel = TRUE)
+# Individuals - PCA (cos2)
+fviz_pca_ind(animals.PCA, col.ind = "cos2", 
+             gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"), 
+             repel = TRUE)
+
+
+
+
+```
+
+# Principal Component Analysis is used to reduce the large set of variables to a 
+# small set that still contains most of the information from the large dataset and thereby, reducing the dimension of the dataset.
+# After performing PCA on the ANimal_rights Dataset, we obtain 10 Principal components. 
+# Each of these components represent the percentage of variability present in the dataset.
+# In other words, PC1 explains 40.94% of total variance, PC2 explains 15.92% and so on. 
+# We will consider the first two principal components as they sum up to 57% of total variance 
+# and the others can be discarded as they contribute to only minimal amount of total variance.
+
+```{r}
+#	Identify the important factors underlying the observed variables and examine the relationships between the countries to these factors. Show visualizations to support your answers where possible.
+
+# Note that here, we are excluding/ignoring the column 'total', because it is just having the summation of all the column values
+fit.pc <- principal(Animal_Rights[c(-1,-11)], nfactors=6, rotate="varimax")
+fit.pc
+
+fit.pc <- principal(Animal_Rights[c(-1,-11)], nfactors=5, rotate="varimax")
+fit.pc
+
+fit.pc <- principal(animals[c(-1,-11)], nfactors=4, rotate="varimax")
+fit.pc
+
+# Factor recommendations for a simple structure
+vss(Animal_Rights[c(-1,-11)]) 
+
+# We are considering 4 factors, because of VSS (Very Simple Structure)
+round(fit.pc$values, 4)
+
+
+
+# Loadings
+fit.pc$loadings
+# Factor Loadings: This table displays the factor loadings for each variable. 
+# It represents the correlation between each variable and each factor. 
+
+# Communalities
+fit.pc$communality
+# Communalities are estimates of the variance in each observed variable that can be 
+# explained by the extracted factors.
+# It shows the proportion of each variable's variance that can be explained by the 
+
+
+# Rotated factor scores
+head(fit.pc$scores)
+round(fit.pc$values,4)
+
+# Factor recommendation
+fa.parallel(Animal_Rights[c(-1,-11)])
+# From this, we can inference that 4th component could be the best choice for number of factors
+
+# Correlations within Factors
+fa.plot(fit.pc)
+
+# Visualizing the relationship
+fa.diagram(fit.pc)
+
+
+summary(vss(Animal_Rights[c(-1,-11)]) )
+
+```
+# Overall, the factor analysis suggests that there are four underlying factors that 
+#The factor scores for each country provide a way to compare countries based on their animal rigts patterns and identify similarities and differences between them.
+# Factor Analysis is the method of identifying the latent relational structure among 
+# a set of variables and then narrowing it down to a smaller number of variables.
+# We can see that we have reduced the factors to five, this contains most of the 
+# information in the dataset.
+# The factors RC1, RC3 can be helpful in analyzing the entire dataset.
+#The parallel recommendations says two factors and two components should be taken.
+
+
+
+#What would you name your principal components and factors? Why? 
+.
+#Factor 1: "Animal Rights and Environmental Advocacy"
+
+#This factor represents attitudes and behaviors associated with advocating for animal rights and environmental conservation.
+#It's characterized by variables with high loadings on both animal rights advocacy and environmental concerns, such as supporting animal welfare legislation and engaging in recycling initiatives.
+#Factor 2: "Dietary Preferences and Consumption Habits"
+#This factor captures attitudes and behaviors related to dietary preferences and consumption habits.
+#It's characterized by variables with high loadings on dietary choices and consumption patterns, such as vegetarianism, organic food preferences, and frequency of meat consumption.
+#For the Principal Component Analyses (PCAs):
+
+#PCA 1: "Advocacy and Conservation Dimensions"
+
+#This PCA explores the common dimensions underlying attitudes and behaviors related to advocacy for animal rights and environmental conservation.
+#It aims to identify shared patterns of engagement in advocacy and conservation efforts.
+#PCA 2: "Dietary and Consumption Patterns"
+
+#This PCA focuses on variables related to dietary preferences and consumption habits.
+#It aims to uncover underlying patterns in individuals' dietary choices and consumption behaviors, independent of advocacy and conservation concerns.
+
+```{r}
+
+```
+
